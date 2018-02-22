@@ -43,6 +43,7 @@ def separate_instruments(file_name = "./inputs/rhythm_birdland.wav"):
     H = P = 0.5 * W
     alpha = 0.3
 
+    zero_np=np.empty_like(H) #A zero array
 
     for k in range(k_max):
         # H_new = np.empty_like(H)
@@ -63,13 +64,54 @@ def separate_instruments(file_name = "./inputs/rhythm_birdland.wav"):
         delta = term_1 - term_2
 
         # Step 5: Update H and P
+        H=np.minimum(np.maximum(H+delta,zero_np),W)
+        P=W - H
 
         # Step 6: Increment k (automatically through loop)
 
     # Step 7: Binarize the separation result
+    #if (H<P).all():
+       # H=np.empty_like(H)*0
+     #   P=W
+   # else:
+       # H=W
+       # P=np.empty_like(H)*0
+
+    H=np.where((H<P).all(),zero_np,W)
+    P= np.where((H >= P).all(), W, zero_np)
 
     # Step 8: Generate separate waveforms
+    first_function= np.power(H,(1/(2*gamma)))*  np.exp(np.angle(F)) #ISTFT is taken first on this, with H
+    second_function = np.power(P, (1 / (2 * gamma))) * np.exp(np.angle(F)) # ISTFT is taken second on this, with P
 
+    _,output_one = istft(first_function,fs=fs,window='hann',nperseg=winlen,noverlap=winlen/2,nfft=winlen,input_onesided=True)
+    _,output_two = istft(second_function, fs=fs, window='hann', nperseg=winlen,noverlap=winlen / 2, nfft=winlen,input_onesided=True)
+
+    #####################################################################################################
+    plt.figure(1)
+    plt.subplot(2, 1, 1)
+    t_scale = np.linspace(0, len(output_one) / fs, len(output_one))
+    plt.plot(t_scale, output_one)
+    plt.title('Time domain visualization of h(t)')
+    plt.axis('tight')
+    plt.grid('on')
+    plt.ylabel('Amplitude')
+    plt.xlabel('Time (s)')
+
+    plt.subplot(2, 1, 2)
+    t_scale = np.linspace(0, len(output_two) / fs, len(output_two))
+    plt.plot(t_scale, output_two)
+    plt.title('Time domain visualization of p(t)')
+    plt.axis('tight')
+    plt.grid('on')
+    plt.ylabel('Amplitude')
+    plt.xlabel('Time (s)')
+    plt.show()
+
+    print(delta)
+    wavfile.write('h(t).wav', int(fs), np.int16(output_one))
+    wavfile.write('p(t).wav', int(fs), np.int16(output_two))
+    
 if __name__ == '__main__':
     print("Beginning run")
     separate_instruments("./inputs/rhythm_birdland.wav")
