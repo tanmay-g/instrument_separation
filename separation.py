@@ -4,10 +4,10 @@ from scipy.signal import stft, istft
 from scipy.io.wavfile import read, write
 
 
-def separate_instruments(file_name = "./inputs/rhythm_birdland.wav"):
+def separate_instruments(file_name = "rhythm_birdland.wav"):
 
     # Read the file
-    fs, x = read(file_name)
+    fs, x = read("./inputs/" + file_name)
 
     winlen = 1024
 
@@ -41,12 +41,9 @@ def separate_instruments(file_name = "./inputs/rhythm_birdland.wav"):
     H = P = 0.5 * W
     alpha = 0.3
 
-    zero_np=np.zeros_like(H) #A zero array
-
     for k in range(k_max):
-        # H_new = np.empty_like(H)
-        # P_new = np.empty_like(P)
-        term_1 = term_2 = np.zeros_like(H)
+        term_1 = np.zeros_like(H)
+        term_2 = np.zeros_like(H)
 
         # Step 4: Calculate update variable delta
         for i_iter in range(1, np.shape(H)[1]-1):
@@ -62,7 +59,7 @@ def separate_instruments(file_name = "./inputs/rhythm_birdland.wav"):
         delta = term_1 - term_2
 
         # Step 5: Update H and P
-        H=np.minimum(np.maximum(H+delta,zero_np),W)
+        H=np.minimum(np.maximum(H+delta,0),W)
         P=W - H
 
         # Step 6: Increment k (automatically through loop)
@@ -71,8 +68,8 @@ def separate_instruments(file_name = "./inputs/rhythm_birdland.wav"):
 
     # H=np.where((H<P).all(),zero_np,W)
     # P= np.where((H >= P).all(), W, zero_np)
-    H=np.where(np.less(H, P),zero_np,W)
-    P= np.where(np.greater_equal(H, P), W, zero_np)
+    H=np.where(np.less(H, P),0,W)
+    P= np.where(np.greater_equal(H, P), 0, W)
 
     # Step 8: Generate separate waveforms
     first_function= np.power(H,(1/(2*gamma)))*  np.exp(np.angle(F)) #ISTFT is taken first on this, with H
@@ -102,10 +99,10 @@ def separate_instruments(file_name = "./inputs/rhythm_birdland.wav"):
     plt.xlabel('Time (s)')
     plt.show()
 
-    write('h(t).wav', int(fs), np.int16(output_one))
-    write('p(t).wav', int(fs), np.int16(output_two))
+    write('./outputs/h_' + file_name, int(fs), np.int16(output_one))
+    write('./outputs/p_' + file_name, int(fs), np.int16(output_two))
 
 if __name__ == '__main__':
     print("Beginning run")
-    separate_instruments("./inputs/rhythm_birdland.wav")
+    separate_instruments("rhythm_birdland.wav")
     print("Completed")
