@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.signal import stft
-from scipy.io.wavfile import read
+from scipy.signal import stft, istft
+from scipy.io.wavfile import read, write
 
 
 def separate_instruments(file_name = "./inputs/rhythm_birdland.wav"):
@@ -9,8 +9,6 @@ def separate_instruments(file_name = "./inputs/rhythm_birdland.wav"):
     # Read the file
     fs, x = read(file_name)
 
-    # winlen_ms = 50
-    # winlen = int(np.power(2, np.ceil(np.log2(float(winlen_ms) / 1000.0 * float(fs)))))
     winlen = 1024
 
     # Step 1: Generate STFT
@@ -43,12 +41,12 @@ def separate_instruments(file_name = "./inputs/rhythm_birdland.wav"):
     H = P = 0.5 * W
     alpha = 0.3
 
-    zero_np=np.empty_like(H) #A zero array
+    zero_np=np.zeros_like(H) #A zero array
 
     for k in range(k_max):
         # H_new = np.empty_like(H)
         # P_new = np.empty_like(P)
-        delta = term_1 = term_2 = np.empty_like(H)
+        term_1 = term_2 = np.zeros_like(H)
 
         # Step 4: Calculate update variable delta
         for i_iter in range(1, np.shape(H)[1]-1):
@@ -70,22 +68,18 @@ def separate_instruments(file_name = "./inputs/rhythm_birdland.wav"):
         # Step 6: Increment k (automatically through loop)
 
     # Step 7: Binarize the separation result
-    #if (H<P).all():
-       # H=np.empty_like(H)*0
-     #   P=W
-   # else:
-       # H=W
-       # P=np.empty_like(H)*0
 
-    H=np.where((H<P).all(),zero_np,W)
-    P= np.where((H >= P).all(), W, zero_np)
+    # H=np.where((H<P).all(),zero_np,W)
+    # P= np.where((H >= P).all(), W, zero_np)
+    H=np.where(np.less(H, P),zero_np,W)
+    P= np.where(np.greater_equal(H, P), W, zero_np)
 
     # Step 8: Generate separate waveforms
     first_function= np.power(H,(1/(2*gamma)))*  np.exp(np.angle(F)) #ISTFT is taken first on this, with H
     second_function = np.power(P, (1 / (2 * gamma))) * np.exp(np.angle(F)) # ISTFT is taken second on this, with P
 
-    _,output_one = istft(first_function,fs=fs,window='hann',nperseg=winlen,noverlap=winlen/2,nfft=winlen,input_onesided=True)
-    _,output_two = istft(second_function, fs=fs, window='hann', nperseg=winlen,noverlap=winlen / 2, nfft=winlen,input_onesided=True)
+    _,output_one = istft(first_function,fs=fs,window='hann',nperseg=winlen,noverlap=int(winlen/2),nfft=winlen,input_onesided=True)
+    _,output_two = istft(second_function, fs=fs, window='hann', nperseg=winlen,noverlap=int(winlen/2), nfft=winlen,input_onesided=True)
 
     #####################################################################################################
     plt.figure(1)
@@ -108,10 +102,9 @@ def separate_instruments(file_name = "./inputs/rhythm_birdland.wav"):
     plt.xlabel('Time (s)')
     plt.show()
 
-    print(delta)
-    wavfile.write('h(t).wav', int(fs), np.int16(output_one))
-    wavfile.write('p(t).wav', int(fs), np.int16(output_two))
-    
+    write('h(t).wav', int(fs), np.int16(output_one))
+    write('p(t).wav', int(fs), np.int16(output_two))
+
 if __name__ == '__main__':
     print("Beginning run")
     separate_instruments("./inputs/rhythm_birdland.wav")
