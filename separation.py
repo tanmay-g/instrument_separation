@@ -18,34 +18,21 @@ def separate_instruments(file_name = "rhythm_birdland.wav"):
     h, i, F = stft(x=x, fs=fs, window='hann', nperseg=winlen, noverlap=int(winlen / 2),
                    nfft=winlen, detrend=False, return_onesided=True, padded=True, axis=-1)
 
-    # # Plot spectrogram
-    # plt.pcolormesh(i, h, np.abs(F))
-    # plt.title('STFT Magnitude')
-    # plt.ylabel('Frequency [Hz]')
-    # plt.xlabel('Time [sec]')
-    # plt.show()
-
     # Step 2: Calculate a range-compressed version of the power spectrogram
     gamma = 0.3
     W = np.power(np.abs(F), 2 * gamma)
 
-    # # Plot spectrogram
-    # plt.pcolormesh(i, h, W)
-    # plt.title('Power spectrogram')
-    # plt.ylabel('Frequency [Hz]')
-    # plt.xlabel('Time [sec]')
-    # plt.show()
-
     # Step 3: Initialise
     k_max = 50
-    H = P = 0.5 * W
+    H = 0.5 * W
+    P = 0.5 * W
     alpha = 0.3
 
     for k in range(k_max):
+        # Step 4: Calculate update variable delta
         term_1 = np.zeros_like(H)
         term_2 = np.zeros_like(H)
 
-        # Step 4: Calculate update variable delta
         for i_iter in range(1, np.shape(H)[1]-1):
             term_1[:, i_iter] = alpha * ((H[:, i_iter-1] + H[:, i_iter+1] - (2 * H[:, i_iter])) / 4)
         term_1[:, 0] = alpha * ((H[:, 1] - H[:, 0]) / 2)
@@ -57,32 +44,34 @@ def separate_instruments(file_name = "rhythm_birdland.wav"):
         term_2[-1, :] = (1 - alpha) * ((P[-2, :] - P[-1, :]) / 2)
 
         delta = term_1 - term_2
+        # Reduce "step size"
+        delta = delta * 0.9
 
         # Step 5: Update H and P
-        H=np.minimum(np.maximum(H+delta,0),W)
-        P=W - H
+        H = np.minimum(np.maximum(H + delta, 0), W)
+        P = W - H
 
         # Step 6: Increment k (automatically through loop)
 
     # Step 7: Binarize the separation result
 
-    # H=np.where((H<P).all(),zero_np,W)
-    # P= np.where((H >= P).all(), W, zero_np)
-    H=np.where(np.less(H, P),0,W)
-    P= np.where(np.greater_equal(H, P), 0, W)
+    H = np.where(np.less(H, P), 0, W)
+    P = np.where(np.greater_equal(H, P), 0, W)
 
     # Step 8: Generate separate waveforms
-    first_function= np.power(H,(1/(2*gamma)))*  np.exp(np.angle(F)) #ISTFT is taken first on this, with H
-    second_function = np.power(P, (1 / (2 * gamma))) * np.exp(np.angle(F)) # ISTFT is taken second on this, with P
+    H_temp = np.power(H, (1 / (2 * gamma))) * np.exp(1j * np.angle(F)) #ISTFT is taken first on this, with H
+    P_temp = np.power(P, (1 / (2 * gamma))) * np.exp(1j * np.angle(F)) # ISTFT is taken second on this, with P
 
-    _,output_one = istft(first_function,fs=fs,window='hann',nperseg=winlen,noverlap=int(winlen/2),nfft=winlen,input_onesided=True)
-    _,output_two = istft(second_function, fs=fs, window='hann', nperseg=winlen,noverlap=int(winlen/2), nfft=winlen,input_onesided=True)
+    _, h = istft(H_temp, fs=fs, window='hann', nperseg=winlen,
+                                  noverlap=int(winlen/2), nfft=winlen, input_onesided=True)
+    _, p = istft(P_temp, fs=fs, window='hann', nperseg=winlen,
+                                    noverlap=int(winlen/2), nfft=winlen, input_onesided=True)
 
     #####################################################################################################
     plt.figure(1)
     plt.subplot(2, 1, 1)
-    t_scale = np.linspace(0, len(output_one) / fs, len(output_one))
-    plt.plot(t_scale, output_one)
+    t_scale = np.linspace(0, len(h) / fs, len(h))
+    plt.plot(t_scale, h)
     plt.title('Time domain visualization of h(t)')
     plt.axis('tight')
     plt.grid('on')
@@ -90,8 +79,8 @@ def separate_instruments(file_name = "rhythm_birdland.wav"):
     plt.xlabel('Time (s)')
 
     plt.subplot(2, 1, 2)
-    t_scale = np.linspace(0, len(output_two) / fs, len(output_two))
-    plt.plot(t_scale, output_two)
+    t_scale = np.linspace(0, len(p) / fs, len(p))
+    plt.plot(t_scale, p)
     plt.title('Time domain visualization of p(t)')
     plt.axis('tight')
     plt.grid('on')
@@ -99,8 +88,8 @@ def separate_instruments(file_name = "rhythm_birdland.wav"):
     plt.xlabel('Time (s)')
     plt.show()
 
-    write('./outputs/h_' + file_name, int(fs), np.int16(output_one))
-    write('./outputs/p_' + file_name, int(fs), np.int16(output_two))
+    write('./outputs/h_' + file_name, int(fs), np.int16(h))
+    write('./outputs/p_' + file_name, int(fs), np.int16(p))
 
 if __name__ == '__main__':
     print("Beginning run")
