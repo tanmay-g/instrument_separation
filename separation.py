@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.signal import stft, istft
+import matplotlib.colors as colors
+from scipy.signal import stft, istft, spectrogram
 from scipy.io.wavfile import read, write
 
 
@@ -8,6 +9,13 @@ def separate_instruments(file_name = "rhythm_birdland.wav"):
 
     # Read the file
     fs, x = read("./inputs/" + file_name)
+
+    f, t, Sxx = spectrogram(x, fs)
+    plt.pcolormesh(t, f, Sxx, norm=colors.LogNorm(vmin=Sxx.min(), vmax=Sxx.max()))
+    plt.title('Spectrogram of x(t)')
+    plt.ylabel('Frequency [Hz]')
+    plt.xlabel('Time [sec]')
+    plt.show()
 
     winlen = 1024
 
@@ -23,7 +31,7 @@ def separate_instruments(file_name = "rhythm_birdland.wav"):
     W = np.power(np.abs(F), 2 * gamma)
 
     # Step 3: Initialise
-    k_max = 50
+    k_max = 100
     H = 0.5 * W
     P = 0.5 * W
     alpha = 0.3
@@ -88,20 +96,37 @@ def separate_instruments(file_name = "rhythm_birdland.wav"):
     plt.xlabel('Time (s)')
     plt.show()
 
+    plt.figure(2)
+    plt.subplot(2, 1, 1)
+    f, t, Sxx = spectrogram(h, fs)
+    plt.pcolormesh(t, f, Sxx, norm=colors.LogNorm(vmin=Sxx.min(), vmax=Sxx.max()))
+    plt.title('Spectrogram of h(t)')
+    plt.ylabel('Frequency [Hz]')
+    plt.xlabel('Time [sec]')
+
+    plt.subplot(2, 1, 2)
+    f, t, Sxx = spectrogram(p, fs)
+    plt.pcolormesh(t, f, Sxx, norm=colors.LogNorm(vmin=Sxx.min(), vmax=Sxx.max()))
+    plt.title('Spectrogram of p(t)')
+    plt.ylabel('Frequency [Hz]')
+    plt.xlabel('Time [sec]')
+    plt.show()
+
     write('./outputs/h_' + file_name, int(fs), np.int16(h))
     write('./outputs/p_' + file_name, int(fs), np.int16(p))
     
     plt.figure()
-    ha, = plt.plot((output_one+output_two)[10000:10500], label='reconstructed')
+    ha, = plt.plot((h+p)[10000:10500], label='reconstructed')
     hb, = plt.plot(x[10000:10500], 'k--', label='original')
     plt.legend(handles=[ha, hb])
     plt.title('Original and separated(10000:105000 samples) waveforms')
     plt.show()
 
-    original_power=10*np.log10(np.sum(np.power(x,2)))
-    error=x-(output_one+output_two)[0:len(x)]
-    noise_power=10*np.log10(np.sum(np.power(error,2)))
-    print(original_power-noise_power)
+    original_power = 10 * np.log10(np.sum(np.power(x,2)))
+    error = x - (h + p)[0:len(x)]
+    noise_power = 10 * np.log10(np.sum(np.power(error,2)))
+    print("SNR is: %.2fdB" %(original_power - noise_power,))
+
 
 if __name__ == '__main__':
     print("Beginning run")
