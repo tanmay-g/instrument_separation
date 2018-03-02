@@ -90,6 +90,18 @@ def separate_instruments(file_name = "rhythm_birdland.wav"):
 
     write('./outputs/h_' + file_name, int(fs), np.int16(h))
     write('./outputs/p_' + file_name, int(fs), np.int16(p))
+    
+    plt.figure()
+    ha, = plt.plot((output_one+output_two)[10000:10500], label='reconstructed')
+    hb, = plt.plot(x[10000:10500], 'k--', label='original')
+    plt.legend(handles=[ha, hb])
+    plt.title('Original and separated(10000:105000 samples) waveforms')
+    plt.show()
+
+    original_power=10*np.log10(np.sum(np.power(x,2)))
+    error=x-(output_one+output_two)[0:len(x)]
+    noise_power=10*np.log10(np.sum(np.power(error,2)))
+    print(original_power-noise_power)
 
 if __name__ == '__main__':
     print("Beginning run")
